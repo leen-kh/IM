@@ -1,3 +1,6 @@
+import beads.*;
+Glide freq;
+Panner panner;
 Table  Autumn2019;
 Table  Spring2019;
 Table  Autumn2020;
@@ -43,8 +46,25 @@ PImage overlay;
 PImage overlay2;
 int rDist = 68;
 int scale =0;
+boolean hovered = false;
+int pitchShift = 20;
+ AudioContext ac;
+
 void setup() {
   size(1300, 850);
+  //frameRate(7);
+  ac = AudioContext.getDefaultContext();
+  panner = new Panner(ac,0);
+  freq = new Glide(ac, 50);
+  freq.setGlideTime(100);
+  WavePlayer wp = new WavePlayer(ac, freq, Buffer.SINE);
+  Gain g = new Gain(ac, 3, 0.25);
+  g.addInput(wp);
+  panner.addInput(g);
+  ac.out.addInput(panner);
+  ac.out.addInput(g);
+
+  ac.start();
   x = width/2;
   y = height/2;
   colorMode(HSB, 360, 100, 100);
@@ -52,6 +72,8 @@ void setup() {
   logo = loadImage("Logo.png");
   overlay = loadImage("overlay.png");
   overlay2 = loadImage("overlay2.png");
+  
+ println(panner.getPos());
 
   //AUTUMN 2019
   Autumn2019 = loadTable("https://eif-research.feit.uts.edu.au/api/csv/?rFromDate=2019-03-11T22%3A25%3A15.287&rToDate=2019-06-09T22%3A25%3A15.287&rFamily=people&rSensor=+PC00.05+%28In%29", "csv");
@@ -60,12 +82,16 @@ void setup() {
   }
   sizeA19 = sizeA19/Autumn2019.getRowCount(); //the semester average
 
+ 
+
   //SPRING 2019
   Spring2019 = loadTable("https://eif-research.feit.uts.edu.au/api/csv/?rFromDate=2019-07-22T22%3A25%3A15.287&rToDate=2019-10-18T22%3A25%3A15.287&rFamily=people&rSensor=+PC00.05+%28In%29", "csv");
   for (int i = 0; i<Spring2019.getRowCount(); i++) {
     sizeS19 += Spring2019.getInt(i, 1);
   }
   sizeS19 = sizeS19/Autumn2019.getRowCount();//the semester average
+
+ 
 
   //AUTUMN 2020
   Autumn2020 = loadTable("https://eif-research.feit.uts.edu.au/api/csv/?rFromDate=2020-03-09T22%3A25%3A15.287&rToDate=2020-06-12T22%3A25%3A15.287&rFamily=people&rSensor=+PC00.05+%28In%29", "csv");
@@ -74,6 +100,8 @@ void setup() {
   }
   sizeA20 = sizeA20/Autumn2020.getRowCount();//the semester average
 
+ 
+
   //SPRING 2020
   Spring2020 = loadTable("https://eif-research.feit.uts.edu.au/api/csv/?rFromDate=2020-07-27T22%3A25%3A15.287&rToDate=2020-10-23T22%3A25%3A15.287&rFamily=people&rSensor=+PC00.05+%28In%29", "csv");
   for (int i = 0; i<Spring2020.getRowCount(); i++) {
@@ -81,15 +109,23 @@ void setup() {
   }
   sizeS20 = sizeS20/Spring2020.getRowCount();//the semester average
 
+ 
+
   semAvg[0] = sizeA19;
   semAvg[1] = sizeS19;
   semAvg[2] = sizeA20;
   semAvg[3] = sizeS20;
+  
 }
+
+ 
+
 void draw() {
   background(bg);  
+
   //main mode
   if (mode==1) {
+    panner.setPos(0);
     bg = loadImage("bg1.png");
     int diameter = 50;
     noStroke(); //background circle
@@ -104,6 +140,8 @@ void draw() {
       diameter+=100+(1*scale);
       
     }
+
+ 
 
     stroke(hue[0], sat[0], 95);
     strokeWeight(2);
@@ -131,7 +169,9 @@ void draw() {
     image(logo, 0, 0);
     diameter = 50+scale;
     for (int i = 0; i<4; i++) { //checks if the mouse is hovered over each circle
-      if (overCircle1(diameter, semAvg[i]+(1*scale/10)) || overCircle2(diameter, semAvg[i]+(1*scale/10))) { //if the mouse is hovered over circle1/the left circle
+    
+      if (overCircle(diameter, semAvg[i]+(1*scale/10))){ //if the mouse is hovered over circle1/the left circle
+        freq.setValue(semAvg[i]* pitchShift);
         strokeWeight(0);
         fill(360);
         textSize(16);
@@ -140,9 +180,14 @@ void draw() {
         fill(0);
         textSize(20);
         text(semAvg[i], mouseX+2, mouseY);
+        hovered=true;
       }
-      diameter+=100+(1*scale);
-    }
+      diameter+=100+(1*scale); // the diameter is increasing for every for loop thats why its not working
+    
+  }
+    
+   if(!hovered){freq.setValue(0);}
+   else{hovered=false;}
 
     fill(360);
     textSize(15);
@@ -151,7 +196,7 @@ void draw() {
     textSize(24);
     text("Average people count per semester", 440, 175);
     textSize(12);
-    text("use left click for selection 1 and right click for selection 2 - press '1' to go to the main graph and press'2' to go into comparison mode", 447, 810);
+    text("Info:   - use left click for selection 1 and right click for selection 2 \n          - Press '1' to go to the main graph and press '2' to go into comparison mode\n          - Zoom in on the circle with the mouse wheel and drag it around with the mouse\n          - Press 'r' to reset the pan/zoom", width/2, 780);
   } 
   
   
@@ -159,6 +204,8 @@ void draw() {
   
   else {
     bg = loadImage("bg2.png");
+
+ 
 
     int b = 95; //initial brightness value for circle colour
     int radius = rad+scale;
@@ -179,6 +226,8 @@ void draw() {
     radius = rad+scale;//resets the value to start from the first circle 
     for (int i = 0; i<12; i++) { //checks if the mouse is hovered over each circle
       if (overCircle1(radius, sems[selection1][i]+(1*scale/10))) { //if the mouse is hovered over circle1/the left circle
+        panner.setPos(-1);
+        freq.setValue(sems[selection1][i] * pitchShift);
         strokeWeight(0);
         fill(360);
         rect(mouseX, mouseY-20, 125, 30);
@@ -187,7 +236,10 @@ void draw() {
         fill(0);
         textSize(20);
         text("Week " + (i+1) + ": " + sems[selection1][i], mouseX+2, mouseY);
+        hovered=true;
       } else if (overCircle2(radius, sems[selection2][i]+(1*scale/10))) {//if the mouse is hovered over circle2/the right circle
+        panner.setPos(1);
+        freq.setValue(sems[selection2][i] * pitchShift);
         strokeWeight(0);
         fill(360);
         rect(mouseX, mouseY-20, 120, 30);
@@ -195,9 +247,13 @@ void draw() {
         fill(0);
         textSize(20);
         text("Week " + (i+1) + ": " + sems[selection2][i], mouseX+2, mouseY);
+        hovered = true;
       }
       radius+=rDist+(1*scale);
     }
+  
+   if(!hovered){freq.setValue(0);}
+   else{hovered=false;}
 
 
     fill(360);
@@ -228,6 +284,8 @@ void draw() {
   text("Semester's statistics:\nMax:\nSum:", statsX, statsY);
 }
 
+ 
+
 boolean overCircle1(int diameter, int strokeWeight) { // returns true if the mouse is hovering over the first half of the circle
   float disX = x - mouseX;
   float disY = y - mouseY;
@@ -242,6 +300,8 @@ boolean overCircle1(int diameter, int strokeWeight) { // returns true if the mou
     return false;
   }
 }
+
+ 
 
 boolean overCircle2(int diameter, int strokeWeight) {// returns true if the mouse is hovering over the second half of the circle
   float disX = x - mouseX;
@@ -258,6 +318,8 @@ boolean overCircle2(int diameter, int strokeWeight) {// returns true if the mous
   }
 }
 
+ 
+
 boolean overRect(int rectx, int recty) {// returns true if the mouse is hovering over the second half of the circle
   if (mouseX >= rectx && mouseX <= rectx+80 && mouseY >= recty && mouseY <= recty+50) {
     return true;
@@ -265,6 +327,11 @@ boolean overRect(int rectx, int recty) {// returns true if the mouse is hovering
     return false;
   }
 }
+
+ boolean overCircle(int diameter, int strokeWeight){
+ if(overCircle1(diameter,strokeWeight) || overCircle2(diameter,strokeWeight)){return true;}
+ return false;
+ }
 
 void keyPressed() {
   if (key == 49 || key == 97) {
@@ -285,6 +352,7 @@ void keyPressed() {
     y = height/2;
   }
 }
+
 void mouseClicked() { //button selections
   if (mouseButton == LEFT) {
     if (overRect(buttonX, buttonY)) {
@@ -341,7 +409,11 @@ void mouseClicked() { //button selections
   }
 }
 
+ 
+
 void mouseWheel(MouseEvent e) {
+
+ 
 
   if (e.getCount()>0 && scale>-10) {
     scale-=10;
